@@ -33,14 +33,14 @@ func fetchLogLines(limit, offset int) []string {
 func analyzeLogLines(lines []string) []string {
 	now := time.Now()
 	output_file := fmt.Sprintf("%s-%d%d%d.json",
-	    OUTPUT_JSON_FILE_PREFIX, now.Year(), now.Month(), now.Day())
+		OUTPUT_JSON_FILE_PREFIX, now.Year(), now.Month(), now.Day())
 
 	cmd := exec.Command(PG_BADGER_CMD,
-	  "--prefix", AWS_LOG_PREFIX,
+		"--prefix", AWS_LOG_PREFIX,
 		"--last-parsed", INC_CTRL_FILE,
 		"--output", output_file,
 		"-",
-  )
+	)
 	stdin, _ := cmd.StdinPipe()
 	defer stdin.Close()
 	for _, line := range lines {
