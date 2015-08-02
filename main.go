@@ -2,17 +2,35 @@ package main
 
 import (
 	"bytes"
+	//	"encoding/json"
 	"fmt"
+	"github.com/marpaia/graphite-golang"
 	"log"
 	"os/exec"
+	"strings"
 	"time"
 )
 
-const SLEEP_TIME = 5 * time.Second
-const AWS_LOG_PREFIX = "%t:%r:%u@%d:[%p]:"
-const PG_BADGER_CMD = "/usr/local/bin/pgbadger"
-const OUTPUT_JSON_FILE_PREFIX = "/data/output"
-const INC_CTRL_FILE = "/data/inc_ctrl.dat"
+const (
+	SLEEP_TIME     = 2 * time.Second
+	RDS_LOG_PREFIX = "%t:%r:%u@%d:[%p]:"
+	PGBADGER_CMD   = "/usr/local/bin/pgbadger"
+	INC_CTRL_FILE  = "/data/inc_ctrl.dat"
+	GRAPHITE_HOST  = "127.0.0.1"
+	GRAPHITE_PORT  = 9999
+)
+
+type LogMinute struct {
+	Timestamp   time.Time
+	Connections int
+	Sessions    int
+	Selects     int
+	Inserts     int
+	Updates     int
+	Max         float64
+	Min         float64
+	Duration    float64
+}
 
 func sleep() {
 	time.Sleep(SLEEP_TIME)
@@ -31,22 +49,27 @@ func fetchLogLines(limit, offset int) []string {
 }
 
 func analyzeLogLines(lines []string) []string {
-	now := time.Now()
-	output_file := fmt.Sprintf("%s-%d%d%d.json",
-		OUTPUT_JSON_FILE_PREFIX, now.Year(), now.Month(), now.Day())
-
-	cmd := exec.Command(PG_BADGER_CMD,
-		"--prefix", AWS_LOG_PREFIX,
+	cmd := exec.Command(PGBADGER_CMD,
+		"--prefix", RDS_LOG_PREFIX,
 		"--last-parsed", INC_CTRL_FILE,
-		"--output", output_file,
+		"--outfile", "-",
+		"--extension", "json",
+		"--format", "stderr",
 		"-",
 	)
-	stdin, _ := cmd.StdinPipe()
-	defer stdin.Close()
-	for _, line := range lines {
-		stdin.Write([]byte(line))
+
+	// Handling Stdin
+	cmd.Stdin = strings.NewReader(strings.Join(lines, "\n"))
+
+	// Handling Stdout
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err != nil {
+		log.Fatal(err)
 	}
-	fmt.Println(cmd.Stdout)
+	fmt.Println(out.String())
+
 	return []string{"proc1", "proc2"}
 }
 
@@ -61,6 +84,18 @@ func work() {
 	if saved > 0 {
 		info(fmt.Sprintf("Saved %d lines...", saved))
 	}
+}
+
+func loadGraphite() {
+	Graphite, err := graphite.NewGraphite(GRAPHITE_HOST, GRAPHITE_PORT)
+	if err != nil {
+		Graphite = graphite.NewGraphiteNop(GRAPHITE_HOST, GRAPHITE_PORT)
+	}
+	info(fmt.Sprintf("Graphite conn: %#v", Graphite))
+}
+
+func init() {
+	loadGraphite()
 }
 
 func main() {
