@@ -1,4 +1,4 @@
-.swp
-.dat
-.log*
-.json
+*.swp
+*.dat
+*.log*
+*.json
