@@ -32,7 +32,7 @@ func sleep() {
 }
 
 func work() {
-	SendLogs(AnalyseLogs(FetchLogs()))
+	SendLogs(AnalyzeLogs(FetchLogs()))
 }
 
 func loadGraphite() {
