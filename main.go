@@ -2,9 +2,7 @@ package main
 
 import (
 	"code.google.com/p/gcfg"
-	"fmt"
 	"github.com/Sirupsen/logrus"
-	"github.com/marpaia/graphite-golang"
 	"time"
 )
 
@@ -22,8 +20,9 @@ type Config struct {
 		SecretKey string
 	}
 	Graphite struct {
-		Host string
-		Port int
+		Host         string
+		Port         int
+		MetricPrefix string
 	}
 }
 
@@ -33,16 +32,6 @@ func sleep() {
 
 func work() {
 	SendLogs(AnalyzeLogs(FetchLogs()))
-}
-
-func loadGraphite() {
-	host := config.Graphite.Host
-	port := config.Graphite.Port
-	Graphite, err := graphite.NewGraphite(host, port)
-	if err != nil {
-		Graphite = graphite.NewGraphiteNop(host, port)
-	}
-	log.Info(fmt.Sprintf("Graphite conn: %#v", Graphite))
 }
 
 func loadLogging() {
@@ -61,7 +50,6 @@ func loadConfig() {
 func init() {
 	loadLogging()
 	loadConfig()
-	loadGraphite()
 }
 
 func main() {
