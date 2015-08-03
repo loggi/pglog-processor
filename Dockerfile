@@ -31,7 +31,7 @@ VOLUME /data
 VOLUME /etc/pglogger.conf
 
 # Copy & Run pglogger
-COPY main.go ${PROJ_PATH}/
+COPY *.go ${PROJ_PATH}/
 WORKDIR ${PROJ_PATH}
 RUN go get && go install
 ENTRYPOINT ["pglogger"]
