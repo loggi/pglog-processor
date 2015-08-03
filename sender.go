@@ -7,6 +7,6 @@ import (
 */
 
 // Send log lines to Graphite
-func SendLogs(Logs logs) {
+func SendLogs(logs Logs) {
 	log.Info("Sending logs to Graphite...")
 }
