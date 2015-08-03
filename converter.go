@@ -12,20 +12,6 @@ import (
 // The fixed date is: Mon Jan 2 15:04:05 MST 2006  (MST is GMT-0700)
 const dateLayout = "200601020304"
 
-// Handle empty strings
-func convMinMax(counter Counter) (min, max string) {
-	log.Info("Converting logs...")
-	maxStr := counter.Query.Max
-	minStr := counter.Query.Min
-	if minStr == "" {
-		minStr = "0.0"
-	}
-	if maxStr == "" {
-		maxStr = "0.0"
-	}
-	return minStr, maxStr
-}
-
 // For some weird reason we're getting the duration doubled
 // We divide by 2 to handle that
 func convDuration(counter Counter) string {
@@ -33,27 +19,40 @@ func convDuration(counter Counter) string {
 	return fmt.Sprintf("%.2f", duration)
 }
 
+func handleEmpty(str string) string {
+	if str == "" {
+		return "0"
+	}
+	return str
+}
+
+func conv(v int) string {
+	return handleEmpty(string(v))
+}
+
 // Create a new LogLine for the given args
 func newLogLine(moment time.Time, counter Counter) LogMinute {
-	min, max := convMinMax(counter)
 	return LogMinute{
 		Timestamp:   moment.Unix(),
-		Connections: string(counter.Connection.Count),
-		Sessions:    string(counter.Session.Count),
-		Selects:     string(counter.Select.Count),
-		Inserts:     string(counter.Insert.Count),
-		Updates:     string(counter.Update.Count),
-		Deletes:     string(counter.Delete.Count),
+		Connections: conv(counter.Connection.Count),
+		Sessions:    conv(counter.Session.Count),
+		Selects:     conv(counter.Select.Count),
+		Inserts:     conv(counter.Insert.Count),
+		Updates:     conv(counter.Update.Count),
+		Deletes:     conv(counter.Delete.Count),
 		Duration:    convDuration(counter),
-		Min:         min,
-		Max:         max,
+		Min:         handleEmpty(counter.Query.Min),
+		Max:         handleEmpty(counter.Query.Max),
 	}
 }
 
 // Convert pgbadger generated logs to our LogMinute struct
 func ConvertLogs(lines string) Logs {
+	log.Info("Converting logs...")
 	var logFile LogFile
+
 	json.Unmarshal([]byte(lines), &logFile)
+	fmt.Println("SELECTS:", logFile.PerMinuteInfo["20150801"]["11"]["00"])
 
 	var logs Logs
 	for date, info := range logFile.PerMinuteInfo {
@@ -64,6 +63,7 @@ func ConvertLogs(lines string) Logs {
 				if err != nil {
 					log.Panic(err)
 				}
+				fmt.Printf("%s:%s:%s SELECT: %v\n", date, hour, min, info.Insert.Count)
 				logs = append(logs, newLogLine(moment, info))
 			}
 		}
