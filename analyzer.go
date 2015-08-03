@@ -14,6 +14,7 @@ const (
 
 // Run pgbadger for the given lines and return a collectin of LogMinutes
 func AnalyzeLogs(lines string) Logs {
+	log.Info("Analyzing logs...")
 	cmd := exec.Command(badgerCmd,
 		"--prefix", rdsLogPrefix,
 		"--last-parsed", incCtrlFile,

@@ -14,6 +14,7 @@ const dateLayout = "200601020304"
 
 // Handle empty strings
 func convMinMax(counter Counter) (min, max string) {
+	log.Info("Converting logs...")
 	maxStr := counter.Query.Max
 	minStr := counter.Query.Min
 	if minStr == "" {
