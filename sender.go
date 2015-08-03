@@ -10,7 +10,8 @@ var Graphite *graphite.Graphite
 func loadGraphite() {
 	host := config.Graphite.Host
 	port := config.Graphite.Port
-	Graphite, err := graphite.NewGraphite(host, port)
+	var err error
+	Graphite, err = graphite.NewGraphite(host, port)
 	if err != nil {
 		Graphite = graphite.NewGraphiteNop(host, port)
 	}
@@ -45,7 +46,6 @@ func createMetrics(log LogMinute) (metrics []graphite.Metric) {
 // Send log lines to Graphite
 func SendLogs(logs Logs) {
 	log.Info("Sending logs to Graphite...")
-
 	var metrics []graphite.Metric
 	for _, log := range logs {
 		metrics = append(metrics, createMetrics(log)...)
