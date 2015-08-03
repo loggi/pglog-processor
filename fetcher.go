@@ -5,7 +5,7 @@ import (
 )
 
 // Fetch log lines from RDS using AWS cli
-func FetchLogLines() string {
+func FetchLogs() string {
 	dat, _ := ioutil.ReadFile("minimal.log")
 	return string(dat)
 }
