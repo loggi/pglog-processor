@@ -27,6 +27,9 @@ RUN curl -L ${GO_URL} | tar -C /opt -xzf - \
     && mkdir -p ${GOPATH}/bin \
     && mkdir -p ${GOPATH}/pkg
 
+VOLUME /data
+VOLUME /etc/pglogger.conf
+
 # Copy & Run pglogger
 COPY main.go ${PROJ_PATH}/
 WORKDIR ${PROJ_PATH}
