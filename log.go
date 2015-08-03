@@ -57,20 +57,20 @@ type LogFile struct {
 }
 
 type HasCount struct {
-	Count int
+	Count int `json:"count"`
 }
 
 type Counter struct {
-	Others     HasCount
-	Select     HasCount
-	Insert     HasCount
-	Update     HasCount
-	Delete     HasCount
-	Connection HasCount
-	Session    HasCount
+	Others     HasCount `json:"OTHERS"`
+	Select     HasCount `json:"SELECT"`
+	Insert     HasCount `json:"INSERT"`
+	Update     HasCount `json:"UPDATE"`
+	Delete     HasCount `json:"DELETE"`
+	Connection HasCount `json:"connection"`
+	Session    HasCount `json:"session"`
 	Query      struct {
-		Duration float64
-		Max      string
-		Min      string
-	}
+		Duration float64 `json:"duration"`
+		Max      string  `json:"max"`
+		Min      string  `json:"min"`
+	} `json:"query"`
 }
