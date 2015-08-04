@@ -1,0 +1,14 @@
+---
+pgdata:
+  image: debian:jessie
+  volumes:
+    - /data
+  entrypoint: /bin/bash
+  command: -c "sleep infinity"
+
+pglogger:
+  image: mribeiro/pglogger
+  volumes:
+    - ./pglogger.conf:/etc/pglogger/pglogger.conf
+  volumes_from:
+    - pgdata

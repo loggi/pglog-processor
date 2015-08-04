@@ -8,7 +8,7 @@ import (
 
 const (
 	sleepTime  = 2 * time.Second
-	configFile = "/etc/pglogger.conf"
+	configFile = "/etc/pglogger/pglogger.conf"
 )
 
 var log *logrus.Logger
