@@ -1,6 +1,6 @@
 # pgbadger (PostgreSQL log Analyzer) is written in Perl
 FROM perl
-MAINTAINER Marcio Ribeiro <binary@b1n.org>
+MAINTAINER Marcio Ribeiro <marcio@loggi.com>
 
 # Install pgbadger and JSON::XS
 ENV PGBADGER_VERSION 7.1

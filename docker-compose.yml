@@ -7,7 +7,7 @@ pgdata:
   command: -c "sleep infinity"
 
 pglogger:
-  image: mribeiro/pglogger
+  image: loggi/pglogger
   volumes:
     - ./pglogger.conf:/etc/pglogger/pglogger.conf
   volumes_from:
