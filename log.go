@@ -53,7 +53,7 @@ func (m Logs) Less(i, j int) bool {
  * }
  */
 type LogFile struct {
-	PerMinuteInfo map[string]map[string]map[string]Counter `json:"per_minute_info"`
+	PerMinuteInfo map[string]map[string]map[string] Counter `json:"per_minute_info"`
 }
 
 type HasCount struct {
