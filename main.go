@@ -1,36 +1,38 @@
 package main
 
 import (
-	"code.google.com/p/gcfg"
-	"errors"
-	log "github.com/Sirupsen/logrus"
-	"io/ioutil"
-	"os/exec"
-	"time"
 	"bytes"
-	"os"
-	"strings"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"os/exec"
+	"strings"
+	"time"
+
+	"code.google.com/p/gcfg"
+	log "github.com/Sirupsen/logrus"
 )
 
 const (
-	consumedSuffix = ".consumed"
-	configFile = "/data/pglogger.conf"
-	//badgerCmd = "/usr/local/bin/pgbadger"
-	badgerCmd = "docker run --entrypoint pgbadger -v /data:/data --rm loggi/pglogger"
+	consumedSuffix  = ".consumed"
+	configFile      = "/data/pglogger.conf"
+	badgerCmd       = "/usr/local/bin/pgbadger"
+	timeStampLayout = "2006-01-02 15:04:05"
 )
 
 type Config struct {
 	Main struct {
-		DebugLevel string
+		DebugLevel        string
 		SleepTimeDuration time.Duration
-		SleepTime string
+		SleepTime         string
+		RunDockerCmd      bool
 	}
 	PgBadger struct {
-		InputDir       string
-		OutputDir      string
-		Prefix         string
-		LastParsedFile string
+		InputDir  string
+		OutputDir string
+		Prefix    string
 	}
 	Graphite struct {
 		Host         string
@@ -76,14 +78,15 @@ func main() {
 			time.Sleep(config.Main.SleepTimeDuration)
 			continue
 		}
-		data := analyze(fd)
-		convert(data)
+
+		analyzed := analyze(fd)
+		converted := convert(analyzed)
 
 		// TODO seiti - write after transforming
 		outFile := config.PgBadger.OutputDir + "/" + fd.filename + ".json"
 		err = ioutil.WriteFile(
 			outFile,
-			data,
+			converted,
 			0666)
 		check(err, "Couldn't write to output", log.Fields{"outFile": outFile})
 
@@ -116,76 +119,60 @@ func find() (FileDesc, error) {
 	return FileDesc{}, errors.New("No files to read from")
 }
 
-// Run pgbadger for the given lines and return an array of LogMinutes
-// XXX TODO return correct data
+// Run pgBadger and returns the generated data.
 func analyze(f FileDesc) []byte {
 	log.WithField("filepath", f.filepath()).Info("Analyzing")
 
-	cmd := exec.Command("docker",
-		"run",
-		"--entrypoint", "pgbadger",
-		"-v", "/data:/data",
-		"--rm", "loggi/pglogger",
-		"--prefix", config.PgBadger.Prefix,
-//		"--last-parsed", config.PgBadger.LastParsedFile,
-		"--outfile", "-",
-		"--extension", "json",
-		//		"-O", logFilesDir,
-		//		"-o", f.filename + ".json",
-		f.filepath(),
-	)
-	// TODO XXX seiti - revert to simple command (using docker container in local env)
-//	cmd := exec.Command(badgerCmd,
-//		"--prefix", config.PgBadger.Prefix,
-//		"--last-parsed", config.PgBadger.LastParsedFile,
-//		"--outfile", "-",
-//		"--extension", "json",
-//		//		"-O", logFilesDir,
-//		//		"-o", f.filename + ".json",
-//		f.filepath(),
-//	)
+	var cmd *exec.Cmd
+
+	if config.Main.RunDockerCmd {
+		cmd = exec.Command("docker",
+			"run",
+			"--entrypoint", "pgbadger",
+			"-v", "/data:/data",
+			"--rm", "loggi/pglogger",
+			"--prefix", config.PgBadger.Prefix,
+			"--outfile", "-",
+			"--extension", "json",
+			f.filepath(),
+		)
+	} else {
+		cmd = exec.Command(badgerCmd,
+			"--prefix", config.PgBadger.Prefix,
+			"--outfile", "-",
+			"--extension", "json",
+			f.filepath(),
+		)
+	}
 
 	var e bytes.Buffer
 	cmd.Stderr = &e
 	out, err := cmd.Output()
 	check(err, "Couldn't run analyzer", log.Fields{
-		"cmd": badgerCmd,
+		"cmd":      badgerCmd,
 		"filepath": f.filepath(),
-		"msg": string(e.Bytes())})
+		"msg":      string(e.Bytes())})
 	return out
 }
 
-func convert(data []byte) {
+// Convert given data, in json format, to another json ready to be sent to ES
+func convert(data []byte) []byte {
 	log.WithField("data len", len(data)).Info("Converting")
 
-	var j PgBagerJson
+	var j PgBadgerOutputData
 	log.WithField("data", string(data)).Debug("Data ready to be converted")
 	err := json.Unmarshal(data, &j)
 	check(err, "Couldn't unmarshal data", log.Fields{})
 
 	log.WithField("unmarshaled", j).Debug()
 
-	// TODO XXX seiti - convert to another struct, marshall and return
-
-
-
-//	var logs Logs
-//	for date, info := range logFile.PerMinuteInfo {
-//		for hour, info := range info {
-//			for min, info := range info {
-//				timeStr := fmt.Sprintf("%s%s%s", date, hour, min)
-//				moment, err := time.Parse(dateLayout, timeStr)
-//				if err != nil {
-//					log.Panic(err)
-//				}
-//				fmt.Printf("%s:%s:%s SELECT: %v\n", date, hour, min, info.Insert.Count)
-//				logs = append(logs, newLogLine(moment, info))
-//			}
-//		}
-//	}
-//	sort.Sort(logs)
+	res, err := json.Marshal(j)
+	check(err, "Couldn't marshal object", log.Fields{"object": j})
+	log.WithField("marshaled", string(res)).Debug()
+	return res
 }
 
+// Marks the given file as consumed, avoiding re-reading it.
 func consumed(f FileDesc) {
 	old := f.filepath()
 	new := f.filepath() + consumedSuffix
@@ -196,9 +183,9 @@ func consumed(f FileDesc) {
 	})
 }
 
-
-// JSON struct representing pgBadger output
+// Struct representing pgBadger output
 // List of first level keys (note that not all is of interest):
+//
 //	"normalyzed_info",
 //	"user_info",
 //	"top_locked_info",
@@ -221,37 +208,52 @@ func consumed(f FileDesc) {
 //	"per_minute_info",
 //	"application_info",
 //	"top_slowest"
-type PgBagerJson struct {
-	TopSlowest []TDS `json:"top_slowest"`
+type PgBadgerOutputData struct {
+	TopSlowest []TopSlowest `json:"pg_top_slowest"`
 }
 
-type TDS struct {
-	Dur time.Duration
-	Tim time.Time
-	Que string
-	Ser string
-	App string
-	W string
-	X string
-	Y string
-	Z string
+type Milli time.Duration
+
+// TopSlowest acts as a mapper from PG log to ES log
+type TopSlowest struct {
+	Action      string    `json:"action"`
+	Duration    Milli     `json:"duration"`
+	Timestamp   time.Time `json:"@timestamp"`
+	Query       string    `json:"query"`
+	Server      string    `json:"server"`
+	Application string    `json:"application"`
 }
 
-func (o *TDS) UnmarshalJSON(data []byte) error {
+// UnmarshalJSON overrides the default unmarshalling, enabling PG log parsing.
+func (o *TopSlowest) UnmarshalJSON(data []byte) error {
 	var v [9]string
 	if err := json.Unmarshal(data, &v); err != nil {
 		return err
 	}
 
-	// TODO seiti - add error checking!!!
-	o.Dur, _ = time.ParseDuration(v[0] + "ms")
-	o.Tim, _ = time.Parse("2006-01-02 15:04:05", v[1]) // TODO extract layout
-	o.Que = v[2]
-	o.Ser = v[3]
-	o.App = v[4]
-	o.W = v[5]
-	o.X = v[6]
-	o.Y = v[7]
-	o.Z = v[8]
+	o.Action = "slowest-queries"
+	duration, err := time.ParseDuration(v[0] + "ms")
+	if err != nil {
+		return err
+	}
+	o.Duration = Milli(duration)
+	timestamp, err := time.Parse(timeStampLayout, v[1])
+	if err != nil {
+		return err
+	}
+	o.Timestamp = timestamp
+	o.Query = v[2]
+	o.Server = v[3]
+	o.Application = v[4]
 	return nil
+}
+
+// String overriding to print milliseconds, not nanoseconds.
+func (o Milli) String() string {
+	return fmt.Sprintf("%v", time.Duration(o).Nanoseconds()/1e6)
+}
+
+// MarshalJSON overriding to print milliseconds, not nanoseconds.
+func (o Milli) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf("%v", o)), nil
 }
