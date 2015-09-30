@@ -22,6 +22,7 @@ const (
 	timeStampLayout = "2006-01-02 15:04:05"
 )
 
+// Config contains configuration data read from conf file.
 type Config struct {
 	Main struct {
 		DebugLevel        string
@@ -41,6 +42,7 @@ type Config struct {
 	}
 }
 
+// FileDesc is a parameter object.
 type FileDesc struct {
 	filename string
 	dirpath  string
@@ -82,7 +84,6 @@ func main() {
 		analyzed := analyze(fd)
 		converted := convert(analyzed)
 
-		// TODO seiti - write after transforming
 		outFile := config.PgBadger.OutputDir + "/" + fd.filename + ".json"
 		err = ioutil.WriteFile(
 			outFile,
@@ -90,7 +91,7 @@ func main() {
 			0666)
 		check(err, "Couldn't write to output", log.Fields{"outFile": outFile})
 
-		consumed(fd)
+		markAsConsumed(fd)
 
 		time.Sleep(config.Main.SleepTimeDuration)
 	}
@@ -172,8 +173,8 @@ func convert(data []byte) []byte {
 	return res
 }
 
-// Marks the given file as consumed, avoiding re-reading it.
-func consumed(f FileDesc) {
+// markAsConsumed marks the given file as consumed, avoiding re-reading it.
+func markAsConsumed(f FileDesc) {
 	old := f.filepath()
 	new := f.filepath() + consumedSuffix
 	err := os.Rename(old, new)
