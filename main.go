@@ -84,7 +84,7 @@ func main() {
 
 		analyzed := analyze(fd)
 		converted := convert(analyzed)
-		append(converted)
+		appendlog(converted)
 		consumed(fd)
 
 		time.Sleep(config.Main.SleepTimeDuration)
@@ -161,10 +161,17 @@ func convert(data []byte) []byte {
 
 	log.WithField("unmarshaled", j).Debug()
 
-	res, err := json.Marshal(j)
-	check(err, "Couldn't marshal object", log.Fields{"object": j})
-	log.WithField("marshaled", string(res)).Debug()
-	return res
+	var converted []byte
+	for _, tps := range j.PgBadgerTopSlowest{
+		res, err := json.Marshal(tps)
+		check(err, "Couldn't marshal object", log.Fields{"object": j})
+		log.WithField("marshaled", string(res)).Debug()
+		check(err, "Couldn't marshal object", log.Fields{"object": j})
+		log.WithField("marshaled", string(res)).Debug()
+		res = append(res, []byte("\n")...)
+		converted = append(converted, res...)
+	}
+	return converted
 }
 
 // markAsConsumed marks the given file as consumed, avoiding re-reading it.
@@ -211,16 +218,12 @@ type Milli time.Duration
 
 // TopSlowest holds the mapped data to be marshaled and sent to ES.
 type TopSlowest struct {
-	Action    string    `json:"action"`
-	Timestamp time.Time `json:"@timestamp"`
-	Msg       Msg       `json:"msg"`
-}
-
-type Msg struct {
-	Duration    Milli  `json:"duration"`
-	Query       string `json:"query"`
-	Server      string `json:"server"`
-	Application string `json:"application"`
+	Action      string    `json:"action"`
+	Timestamp   time.Time `json:"@timestamp"`
+	Duration    Milli     `json:"duration"`
+	Query       string    `json:"query"`
+	Server      string    `json:"server"`
+	Application string    `json:"application"`
 }
 
 // UnmarshalJSON overrides the default unmarshalling, enabling PG log parsing.
@@ -240,14 +243,10 @@ func (o *TopSlowest) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	o.Timestamp = timestamp
-	msg := Msg{
-		Duration:    Milli(duration),
-		Query:       v[2],
-		Server:      v[3],
-		Application: v[4],
-	}
-
-	o.Msg = msg
+	o.Duration = Milli(duration)
+	o.Query = v[2]
+	o.Server = v[3]
+	o.Application = v[4]
 	return nil
 }
 
@@ -261,11 +260,12 @@ func (o Milli) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf("%v", o)), nil
 }
 
-func append(converted []byte) {
+func appendlog(converted []byte) {
 	outFile := config.Main.OutputFilePath
-	f, errOpen := os.OpenFile(outFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
+	f, errOpen := os.OpenFile(outFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0660)
 	defer f.Close()
 	check(errOpen, "Couldn't open output file", log.Fields{"outFile": outFile})
 	_, errWrite := f.Write(converted)
+	f.Sync()
 	check(errWrite, "Couldn't write to output", log.Fields{"outFile": outFile})
 }
