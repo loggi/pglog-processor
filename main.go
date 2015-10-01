@@ -30,11 +30,11 @@ type Config struct {
 		SleepTimeDuration time.Duration
 		SleepTime         string
 		RunDockerCmd      bool
+		OutputFilePath    string
 	}
 	PgBadger struct {
-		InputDir  string
-		OutputDir string
-		Prefix    string
+		InputDir string
+		Prefix   string
 	}
 	Graphite struct {
 		Host         string
@@ -84,14 +84,7 @@ func main() {
 
 		analyzed := analyze(fd)
 		converted := convert(analyzed)
-
-		outFile := config.PgBadger.OutputDir + "/" + fd.filename + ".json"
-		err = ioutil.WriteFile(
-			outFile,
-			converted,
-			0666)
-		check(err, "Couldn't write to output", log.Fields{"outFile": outFile})
-
+		append(converted)
 		consumed(fd)
 
 		time.Sleep(config.Main.SleepTimeDuration)
@@ -266,4 +259,13 @@ func (o Milli) String() string {
 // MarshalJSON overriding to print milliseconds, not nanoseconds.
 func (o Milli) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf("%v", o)), nil
+}
+
+func append(converted []byte) {
+	outFile := config.Main.OutputFilePath
+	f, errOpen := os.OpenFile(outFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
+	defer f.Close()
+	check(errOpen, "Couldn't open output file", log.Fields{"outFile": outFile})
+	_, errWrite := f.Write(converted)
+	check(errWrite, "Couldn't write to output", log.Fields{"outFile": outFile})
 }
