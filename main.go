@@ -20,6 +20,7 @@ const (
 	configFile      = "/data/pglogger.conf"
 	badgerCmd       = "/usr/local/bin/pgbadger"
 	timeStampLayout = "2006-01-02 15:04:05"
+	actionKeyOnES   = "pgSlowestQueries"
 )
 
 // Config contains configuration data read from conf file.
@@ -210,19 +211,23 @@ func consumed(f FileDesc) {
 //	"application_info",
 //	"top_slowest"
 type PgBadgerOutputData struct {
-	TopSlowest []TopSlowest `json:"top_slowest"`
+	PgBadgerTopSlowest []TopSlowest `json:"top_slowest"`
 }
 
 type Milli time.Duration
 
-// TopSlowest acts as a mapper from PG log to ES log
+// TopSlowest holds the mapped data to be marshaled and sent to ES.
 type TopSlowest struct {
-	Action      string    `json:"action"`
-	Duration    Milli     `json:"duration"`
-	Timestamp   time.Time `json:"@timestamp"`
-	Query       string    `json:"query"`
-	Server      string    `json:"server"`
-	Application string    `json:"application"`
+	Action    string    `json:"action"`
+	Timestamp time.Time `json:"@timestamp"`
+	Msg       Msg       `json:"msg"`
+}
+
+type Msg struct {
+	Duration    Milli  `json:"duration"`
+	Query       string `json:"query"`
+	Server      string `json:"server"`
+	Application string `json:"application"`
 }
 
 // UnmarshalJSON overrides the default unmarshalling, enabling PG log parsing.
@@ -232,20 +237,24 @@ func (o *TopSlowest) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	o.Action = "pg-slowest-queries"
+	o.Action = "pgSlowestQueries"
 	duration, err := time.ParseDuration(v[0] + "ms")
 	if err != nil {
 		return err
 	}
-	o.Duration = Milli(duration)
 	timestamp, err := time.Parse(timeStampLayout, v[1])
 	if err != nil {
 		return err
 	}
 	o.Timestamp = timestamp
-	o.Query = v[2]
-	o.Server = v[3]
-	o.Application = v[4]
+	msg := Msg{
+		Duration:    Milli(duration),
+		Query:       v[2],
+		Server:      v[3],
+		Application: v[4],
+	}
+
+	o.Msg = msg
 	return nil
 }
 
