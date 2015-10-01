@@ -91,7 +91,7 @@ func main() {
 			0666)
 		check(err, "Couldn't write to output", log.Fields{"outFile": outFile})
 
-		markAsConsumed(fd)
+		consumed(fd)
 
 		time.Sleep(config.Main.SleepTimeDuration)
 	}
@@ -174,7 +174,7 @@ func convert(data []byte) []byte {
 }
 
 // markAsConsumed marks the given file as consumed, avoiding re-reading it.
-func markAsConsumed(f FileDesc) {
+func consumed(f FileDesc) {
 	old := f.filepath()
 	new := f.filepath() + consumedSuffix
 	err := os.Rename(old, new)
@@ -210,7 +210,7 @@ func markAsConsumed(f FileDesc) {
 //	"application_info",
 //	"top_slowest"
 type PgBadgerOutputData struct {
-	TopSlowest []TopSlowest `json:"pg_top_slowest"`
+	TopSlowest []TopSlowest `json:"top_slowest"`
 }
 
 type Milli time.Duration
@@ -232,7 +232,7 @@ func (o *TopSlowest) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	o.Action = "slowest-queries"
+	o.Action = "pg-slowest-queries"
 	duration, err := time.ParseDuration(v[0] + "ms")
 	if err != nil {
 		return err
