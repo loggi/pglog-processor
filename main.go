@@ -20,7 +20,7 @@ const (
 	configFile      = "/data/pglogger.conf"
 	badgerCmd       = "/usr/local/bin/pgbadger"
 	timeStampLayout = "2006-01-02 15:04:05"
-	actionKeyOnES   = "pgSlowestQueries"
+	actionKeyOnES   = "PgSlowestQueries"
 )
 
 // Config contains configuration data read from conf file.
@@ -84,13 +84,14 @@ func main() {
 
 		analyzed := analyze(fd)
 		converted := convert(analyzed)
-		appendlog(converted)
+		appendLog(converted)
 		consumed(fd)
 
 		time.Sleep(config.Main.SleepTimeDuration)
 	}
 }
 
+// Simple error checking. Wraps log utilities.
 func check(err error, panicMsg string, panicFields log.Fields) {
 	if err == nil {
 		return
@@ -210,10 +211,14 @@ func consumed(f FileDesc) {
 //	"per_minute_info",
 //	"application_info",
 //	"top_slowest"
+//
+// Currently only top_slowest is converted. TODO add other stats.
 type PgBadgerOutputData struct {
 	PgBadgerTopSlowest []TopSlowest `json:"top_slowest"`
 }
 
+// Milli type is required to make duration unmarshalling flexible.
+// We just need to save milliseconds granularity.
 type Milli time.Duration
 
 // TopSlowest holds the mapped data to be marshaled and sent to ES.
@@ -260,7 +265,8 @@ func (o Milli) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf("%v", o)), nil
 }
 
-func appendlog(converted []byte) {
+// Appends the given byte array to target file, saving it.
+func appendLog(converted []byte) {
 	outFile := config.Main.OutputFilePath
 	f, errOpen := os.OpenFile(outFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0660)
 	defer f.Close()
