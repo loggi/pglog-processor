@@ -222,8 +222,8 @@ type TopSlowest struct {
 	Timestamp   time.Time `json:"@timestamp"`
 	Duration    Milli     `json:"duration"`
 	Query       string    `json:"query"`
-	Server      string    `json:"server"`
-	Application string    `json:"application"`
+	Username string    `json:"server"`
+	Database string    `json:"application"`
 }
 
 // UnmarshalJSON overrides the default unmarshalling, enabling PG log parsing.
@@ -245,8 +245,8 @@ func (o *TopSlowest) UnmarshalJSON(data []byte) error {
 	o.Timestamp = timestamp
 	o.Duration = Milli(duration)
 	o.Query = v[2]
-	o.Server = v[3]
-	o.Application = v[4]
+	o.Username = v[3]
+	o.Database = v[4]
 	return nil
 }
 
