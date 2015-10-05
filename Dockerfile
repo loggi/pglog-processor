@@ -15,7 +15,7 @@ RUN curl -L ${PGBADGER_URL} | tar -C /opt -xzf - \
 ENV GOROOT /opt/go
 ENV GOPATH /opt/local/go
 ENV GOBIN ${GOPATH}/bin
-ENV PROJ_PATH  ${GOPATH}/src/pglogger
+ENV PROJ_PATH  ${GOPATH}/src/pglog-processor
 ENV PATH ${PATH}:${GOROOT}/bin:${GOBIN}
 ENV GO_VERSION 1.4.2
 ENV GO_FILENAME go${GO_VERSION}.linux-amd64
@@ -28,10 +28,10 @@ RUN curl -L ${GO_URL} | tar -C /opt -xzf - \
     && mkdir -p ${GOPATH}/pkg
 
 VOLUME /data
-VOLUME /etc/pglogger
+VOLUME /etc/pglog-processor
 
-# Copy & Run pglogger
+# Copy & Run pglog-processor
 COPY *.go ${PROJ_PATH}/
 WORKDIR ${PROJ_PATH}
 RUN go get && go install
-ENTRYPOINT ["pglogger"]
+ENTRYPOINT ["pglog-processor"]

@@ -9,6 +9,6 @@ pgdata:
 pglogger:
   image: loggi/pglogger
   volumes:
-    - ./pglogger.conf:/etc/pglogger/pglogger.conf
+    - ./pglog-processor.conf:/etc/pglogger/pglog-processor.conf
   volumes_from:
     - pgdata
