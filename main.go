@@ -12,25 +12,27 @@ import (
 	"time"
 
 	"code.google.com/p/gcfg"
+	"flag"
 	log "github.com/Sirupsen/logrus"
 )
 
 const (
-	consumedSuffix  = ".consumed"
-	configFile      = "/data/pglogger.conf"
-	badgerCmd       = "/usr/local/bin/pgbadger"
-	timeStampLayout = "2006-01-02 15:04:05"
-	actionKeyOnES   = "PgSlowestQueries"
+	consumedSuffix    = ".consumed"
+	defaultConfigFile = "/data/pglog-processor.conf"
+	badgerCmd         = "/usr/local/bin/pgbadger"
+	timeStampLayout   = "2006-01-02 15:04:05"
+	actionKeyOnES     = "PgSlowestQueries"
 )
 
 // Config contains configuration data read from conf file.
+// Main.RunDockerCmd is useful for local testing.
 type Config struct {
 	Main struct {
-		DebugLevel        string
+		LogLevel          string
 		SleepTimeDuration time.Duration
 		SleepTime         string
-		RunDockerCmd      bool
 		OutputFilePath    string
+		RunDockerCmd      bool
 	}
 	PgBadger struct {
 		InputDir string
@@ -56,14 +58,24 @@ func (f *FileDesc) filepath() string {
 var config Config
 
 func init() {
-	err := gcfg.ReadFileInto(&config, configFile)
-	check(err, "Couldn't set configuration", log.Fields{"configFile": configFile})
+
+	var confPath string
+	flag.StringVar(&confPath, "conf", defaultConfigFile, "Config file path")
+	test := flag.Bool("test", false, "Testing?")
+	flag.Parse()
+
+	log.WithField("Using configuration file", confPath).Info()
+
+	err := gcfg.ReadFileInto(&config, confPath)
+	check(err, "Couldn't set configuration", log.Fields{"configFile": confPath})
 	config.Main.SleepTimeDuration, err = time.ParseDuration(config.Main.SleepTime)
-	check(err, "Couldn't set duration", log.Fields{"configFile": configFile})
+	check(err, "Couldn't set duration", log.Fields{"configFile": confPath})
 	log.WithField("config", config).Info()
-	level, err := log.ParseLevel(config.Main.DebugLevel)
-	check(err, "Couldn't set debug level", log.Fields{"level": config.Main.DebugLevel})
+	level, err := log.ParseLevel(config.Main.LogLevel)
+	check(err, "Couldn't set debug level", log.Fields{"level": config.Main.LogLevel})
+
 	log.SetLevel(level)
+	config.Main.RunDockerCmd = *test
 }
 
 func main() {
@@ -96,7 +108,7 @@ func check(err error, panicMsg string, panicFields log.Fields) {
 	if err == nil {
 		return
 	}
-	log.WithError(err).Info()
+	log.WithError(err).Error()
 	log.WithFields(panicFields).Panic(panicMsg)
 	panic(panicMsg)
 }
@@ -126,7 +138,7 @@ func analyze(f FileDesc) []byte {
 			"run",
 			"--entrypoint", "pgbadger",
 			"-v", "/data:/data",
-			"--rm", "loggi/pglogger",
+			"--rm", "loggi/pglog-processor",
 			"--prefix", config.PgBadger.Prefix,
 			"--outfile", "-",
 			"--extension", "json",
@@ -163,7 +175,7 @@ func convert(data []byte) []byte {
 	log.WithField("unmarshaled", j).Debug()
 
 	var converted []byte
-	for _, tps := range j.PgBadgerTopSlowest{
+	for _, tps := range j.PgBadgerTopSlowest {
 		res, err := json.Marshal(tps)
 		check(err, "Couldn't marshal object", log.Fields{"object": j})
 		log.WithField("marshaled", string(res)).Debug()
@@ -223,12 +235,12 @@ type Milli time.Duration
 
 // TopSlowest holds the mapped data to be marshaled and sent to ES.
 type TopSlowest struct {
-	Action      string    `json:"action"`
-	Timestamp   time.Time `json:"@timestamp"`
-	Duration    Milli     `json:"duration"`
-	Query       string    `json:"query"`
-	Username string    `json:"server"`
-	Database string    `json:"application"`
+	Action    string    `json:"action"`
+	Timestamp time.Time `json:"@timestamp"`
+	Duration  Milli     `json:"duration"`
+	Query     string    `json:"query"`
+	Username  string    `json:"server"`
+	Database  string    `json:"application"`
 }
 
 // UnmarshalJSON overrides the default unmarshalling, enabling PG log parsing.
