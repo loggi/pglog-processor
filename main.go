@@ -250,7 +250,7 @@ func (o *TopSlowest) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	o.Action = "pgSlowestQueries"
+	o.Action = actionKeyOnES
 	duration, err := time.ParseDuration(v[0] + "ms")
 	if err != nil {
 		return err
