@@ -17,22 +17,23 @@ import (
 )
 
 const (
-	consumedSuffix    = ".consumed"
-	defaultConfigFile = "/data/pglog-processor.conf"
-	badgerCmd         = "/usr/local/bin/pgbadger"
-	timeStampLayout   = "2006-01-02 15:04:05"
-	actionKeyOnES     = "PgSlowestQueries"
+	consumedSuffix       = ".consumed"
+	defaultConfigFile    = "pglog-processor.conf"
+	badgerCmd            = "/usr/local/bin/pgbadger"
+	timeStampParseLayout = "2006-01-02 15:04:05"
+	timeStampPrintLayout = "2006-01-02T15:04:05.999999+00:00"
+	actionKeyOnES        = "PgSlowestQueries"
 )
 
 // Config contains configuration data read from conf file.
 // Main.RunDockerCmd is useful for local testing.
 type Config struct {
 	Main struct {
-		LogLevel          string
 		SleepTimeDuration time.Duration
 		SleepTime         string
 		OutputFilePath    string
-		RunDockerCmd      bool
+		LogLevel          string
+		Test              bool
 	}
 	PgBadger struct {
 		InputDir string
@@ -75,7 +76,7 @@ func init() {
 	check(err, "Couldn't set debug level", log.Fields{"level": config.Main.LogLevel})
 
 	log.SetLevel(level)
-	config.Main.RunDockerCmd = *test
+	config.Main.Test = *test
 }
 
 func main() {
@@ -133,7 +134,7 @@ func analyze(f FileDesc) []byte {
 
 	var cmd *exec.Cmd
 
-	if config.Main.RunDockerCmd {
+	if config.Main.Test {
 		cmd = exec.Command("docker",
 			"run",
 			"--entrypoint", "pgbadger",
@@ -233,14 +234,16 @@ type PgBadgerOutputData struct {
 // We just need to save milliseconds granularity.
 type Milli time.Duration
 
+type Timestamp time.Time
+
 // TopSlowest holds the mapped data to be marshaled and sent to ES.
 type TopSlowest struct {
 	Action    string    `json:"action"`
-	Timestamp time.Time `json:"@timestamp"`
+	Timestamp Timestamp `json:"@timestamp"`
 	Duration  Milli     `json:"duration"`
 	Query     string    `json:"query"`
-	Username  string    `json:"server"`
-	Database  string    `json:"application"`
+	Username  string    `json:"username"`
+	Database  string    `json:"database"`
 }
 
 // UnmarshalJSON overrides the default unmarshalling, enabling PG log parsing.
@@ -255,11 +258,11 @@ func (o *TopSlowest) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	timestamp, err := time.Parse(timeStampLayout, v[1])
+	timestamp, err := time.Parse(timeStampParseLayout, v[1])
 	if err != nil {
 		return err
 	}
-	o.Timestamp = timestamp
+	o.Timestamp = Timestamp(timestamp)
 	o.Duration = Milli(duration)
 	o.Query = v[2]
 	o.Username = v[3]
@@ -275,6 +278,16 @@ func (o Milli) String() string {
 // MarshalJSON overriding to print milliseconds, not nanoseconds.
 func (o Milli) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf("%v", o)), nil
+}
+
+// String overriding to force accepted timestamp format
+func (t Timestamp) String() string {
+	return time.Now().Format(timeStampPrintLayout)
+}
+
+// MarshalJSON overriding to force accepted timestamp format
+func (t Timestamp) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf(`"%v"`, t)), nil
 }
 
 // Appends the given byte array to target file, saving it.
