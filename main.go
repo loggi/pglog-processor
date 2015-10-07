@@ -17,6 +17,7 @@ import (
 
 const (
 	consumedSuffix       = ".consumed"
+	errorSuffix          = ".error" + ".consumed"
 	defaultConfigFile    = "pglog-processor.conf"
 	badgerCmd            = "/usr/local/bin/pgbadger"
 	timeStampParseLayout = "2006-01-02 15:04:05"
@@ -94,10 +95,13 @@ func main() {
 			continue
 		}
 
-		analyzed := analyze(fd)
-		converted := convert(analyzed)
-		appendLog(converted)
-		consumed(fd)
+		if analyzed, err := analyze(fd); err != nil {
+			consumed(fd, errorSuffix)
+		} else {
+			converted := convert(analyzed)
+			appendLog(converted)
+			consumed(fd, consumedSuffix)
+		}
 
 		time.Sleep(config.Main.SleepTimeDuration)
 	}
@@ -128,7 +132,7 @@ func find() (FileDesc, error) {
 }
 
 // Run pgBadger and returns the generated data.
-func analyze(f FileDesc) []byte {
+func analyze(f FileDesc) ([]byte, error) {
 	log.WithField("filepath", f.filepath()).Info("Analyzing")
 
 	var cmd *exec.Cmd
@@ -155,12 +159,16 @@ func analyze(f FileDesc) []byte {
 
 	var e bytes.Buffer
 	cmd.Stderr = &e
-	out, err := cmd.Output()
-	check(err, "Couldn't run analyzer", log.Fields{
-		"cmd":      badgerCmd,
-		"filepath": f.filepath(),
-		"msg":      string(e.Bytes())})
-	return out
+	if out, err := cmd.Output(); err != nil {
+		log.WithError(err).Error()
+		log.WithFields(log.Fields{
+			"cmd":      badgerCmd,
+			"filepath": f.filepath(),
+			"msg":      string(e.Bytes())}).Error("Couldn't run analyzer")
+		return nil, err
+	} else {
+		return out, nil
+	}
 }
 
 // Convert given data, in json format, to another json ready to be sent to ES
@@ -186,11 +194,11 @@ func convert(data []byte) []byte {
 }
 
 // markAsConsumed marks the given file as consumed, avoiding re-reading it.
-func consumed(f FileDesc) {
+func consumed(f FileDesc, suffix string) {
 	old := f.filepath()
-	new := f.filepath() + consumedSuffix
+	new := f.filepath() + suffix
 	err := os.Rename(old, new)
-	check(err, "Couldn't rename file, to set as consumed", log.Fields{
+	check(err, "Couldn't rename file", log.Fields{
 		"old": old,
 		"new": new,
 	})
