@@ -179,8 +179,6 @@ func convert(data []byte) []byte {
 		res, err := json.Marshal(tps)
 		check(err, "Couldn't marshal object", log.Fields{"object": j})
 		log.WithField("marshaled", string(res)).Debug()
-		check(err, "Couldn't marshal object", log.Fields{"object": j})
-		log.WithField("marshaled", string(res)).Debug()
 		res = append(res, []byte("\n")...)
 		converted = append(converted, res...)
 	}
@@ -197,8 +195,6 @@ func consumed(f FileDesc) {
 		"new": new,
 	})
 }
-
-
 
 // Appends the given byte array to target file, saving it.
 func appendLog(converted []byte) {
