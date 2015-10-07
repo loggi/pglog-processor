@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+	log "github.com/Sirupsen/logrus"
 )
 
 // Struct representing pgBadger output
@@ -34,8 +35,8 @@ import (
 //
 // Currently only top_slowest is converted. TODO add other stats.
 type PgBadgerOutputData struct {
-	PgBadgerTopSlowest []TopSlowest `json:"top_slowest"`
-	//	PgBadgerNormalyzedInfo []NormalyzedInfo `json:"normalyzed_info"`
+	PgBadgerTopSlowest     []TopSlowest   `json:"top_slowest"`
+	PgBadgerNormalyzedInfo NormalizedInfo `json:"normalyzed_info"`
 }
 
 // Milli type is required to make duration unmarshalling flexible.
@@ -54,7 +55,39 @@ type TopSlowest struct {
 	Database  string    `json:"database"`
 }
 
-// UnmarshalJSON overrides the default unmarshalling, enabling PG log parsing.
+// NormalizedInfo holds the mapped data to be marshaled and sent to ES.
+// Notice the transformation from pgBadger's structured data to flat.
+//
+// map["select 1":
+//   map["chronos":
+//     map["20151006":
+//       map[
+//         "19":
+//           map[
+//             "min": map["00":3, "01":3]
+//             "min_duration": map[01:215.289 00:233.06]
+//             "count":6
+//             "duration":7369.941
+//           ]
+//       ]
+//     ]
+//   ]
+// ]
+type NormalizedInfo struct {
+	Entries []NormalizedInfoEntry `json:"entries"`
+}
+
+type NormalizedInfoEntry struct {
+	Action    string    `json:"action"`
+	Timestamp Timestamp `json:"@timestamp"`
+	Duration  Milli     `json:"duration"`
+	Query     string    `json:"query"`
+	Count     int       `json:"count"`
+}
+
+// UnmarshalJSON overrides the default unmarshalling, enabling pgBadger output
+// parsing.
+// The pgBadger `top_slowest` section is structured as a array of values.
 func (o *TopSlowest) UnmarshalJSON(data []byte) error {
 	var v [9]string
 	if err := json.Unmarshal(data, &v); err != nil {
@@ -78,6 +111,15 @@ func (o *TopSlowest) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (o *NormalizedInfo) UnmarshalJSON(data []byte) error {
+	var v interface{}
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	log.WithField("v", v).Debug()
+	return nil
+}
+
 // String overriding to print milliseconds, not nanoseconds.
 func (o Milli) String() string {
 	return fmt.Sprintf("%v", time.Duration(o).Nanoseconds()/1e6)
@@ -97,3 +139,9 @@ func (t Timestamp) String() string {
 func (t Timestamp) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf(`"%v"`, t)), nil
 }
+
+
+// map[20151006:
+//  map[18:
+//   map[
+//   count:22 duration:7369.941 min:map[05:1 07:1 09:3 10:7 00:3 01:3 02:4] min_duration:map[10:896.483 00:233.06 01:215.289 02:253.358 05:58.471 07:131.922 09:278.288]] 19:map[count:6 duration:7369.941 min:map[00:3 01:3] min_duration:map[01:215.289 00:233.06]]]]
