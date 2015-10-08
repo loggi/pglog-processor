@@ -202,7 +202,7 @@ func marshal(v interface{}) []byte {
 	res, err := json.Marshal(v)
 	check(err, "Couldn't marshal object", log.Fields{"object": v})
 	log.WithField("marshaled", string(res)).Debug()
-	return res
+	return []byte(string(res) + "\n")
 }
 
 // markAsConsumed marks the given file as consumed, avoiding re-reading it.
