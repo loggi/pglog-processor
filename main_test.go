@@ -37,8 +37,13 @@ const JSON_DATA = `
   ]
 }`
 
+const EMPTY_DATA = ``
+
 func TestConversion(t *testing.T) {
-	res := convert([]byte(JSON_DATA))
+	res, err := convert([]byte(JSON_DATA))
+	if err != nil {
+		t.Errorf("Error converting")
+	}
 	fmt.Println(len(res))
 
 	sres := string(res)
@@ -49,6 +54,14 @@ func TestConversion(t *testing.T) {
 		t.Errorf("Should have generated %v json data", tslActionKeyOnES)
 	}
 	fmt.Println(sres)
+}
+
+func TestEmptyConversionError(t *testing.T) {
+	res, err := convert([]byte(EMPTY_DATA))
+	if err == nil {
+		t.Errorf("Should have created Error")
+	}
+	fmt.Println(len(res))
 }
 
 func TestUnmarshal(t *testing.T) {
