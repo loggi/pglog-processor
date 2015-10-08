@@ -1,4 +1,4 @@
-package main
+package pglog_processor
 
 import (
 	"encoding/json"
