@@ -16,10 +16,10 @@ import (
 )
 
 const (
-	consumedSuffix       = ".consumed"
-	errorSuffix          = ".error" + ".consumed"
-	defaultConfigFile    = "pglog-processor.conf"
-	badgerCmd            = "/usr/local/bin/pgbadger"
+	consumedSuffix    = ".consumed"
+	errorSuffix       = ".error" + ".consumed"
+	defaultConfigFile = "pglog-processor.conf"
+	badgerCmd         = "/usr/local/bin/pgbadger"
 )
 
 // Config contains configuration data read from conf file.
@@ -94,8 +94,9 @@ func main() {
 
 		if analyzed, err := analyze(fd); err != nil {
 			consumed(fd, errorSuffix)
+		} else if converted, err := convert(analyzed); err != nil {
+			consumed(fd, errorSuffix)
 		} else {
-			converted := convert(analyzed)
 			appendLog(converted)
 			consumed(fd, consumedSuffix)
 		}
@@ -169,13 +170,15 @@ func analyze(f FileDesc) ([]byte, error) {
 }
 
 // Convert given data, in json format, to another json ready to be sent to ES
-func convert(data []byte) []byte {
+func convert(data []byte) ([]byte, error) {
 	log.WithField("data len", len(data)).Info("Converting")
 
 	var j PgBadgerOutputData
 	log.WithField("data", string(data)).Debug("Data ready to be converted")
-	err := json.Unmarshal(data, &j)
-	check(err, "Couldn't unmarshal data", log.Fields{})
+	if err := json.Unmarshal(data, &j); err != nil {
+		log.WithError(err).WithFields(log.Fields{"data": data}).Error("Couldn't unmarshal data")
+		return nil, err
+	}
 
 	log.WithField("unmarshaled", j).Debug()
 
@@ -187,10 +190,10 @@ func convert(data []byte) []byte {
 	}
 
 	// converting NormalyzedInfo (sic)
-	for _, nfo := range j.PgBadgerNormalyzedInfo.Entries  {
+	for _, nfo := range j.PgBadgerNormalyzedInfo.Entries {
 		converted = append(converted, marshal(nfo)...)
 	}
-	return converted
+	return converted, nil
 }
 
 func marshal(v interface{}) []byte {
