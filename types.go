@@ -152,7 +152,7 @@ type NormalizedInfoEntry struct {
 	Timestamp Timestamp `json:"@timestamp"`
 	Duration  Milli     `json:"duration"`
 	Query     string    `json:"query"`
-	Count     int       `json:"username"`
+	Count     int       `json:"count"`
 }
 
 
