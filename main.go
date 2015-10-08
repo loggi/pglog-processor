@@ -185,11 +185,13 @@ func convert(data []byte) ([]byte, error) {
 	var converted []byte
 
 	// converting TopSlowest
+	log.WithField("entries", len(j.PgBadgerTopSlowest)).Info("PgBadgerTopSlowest")
 	for _, tps := range j.PgBadgerTopSlowest {
 		converted = append(converted, marshal(tps)...)
 	}
 
 	// converting NormalyzedInfo (sic)
+	log.WithField("entries", len(j.PgBadgerNormalyzedInfo.Entries)).Info("PgBadgerNormalyzedInfo")
 	for _, nfo := range j.PgBadgerNormalyzedInfo.Entries {
 		converted = append(converted, marshal(nfo)...)
 	}
