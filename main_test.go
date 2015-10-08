@@ -5,6 +5,7 @@ import (
 //	"time"
 	"fmt"
 	"encoding/json"
+	"strings"
 )
 
 const JSON_DATA = `
@@ -15,13 +16,13 @@ const JSON_DATA = `
       "chronos": {
         "20151006": {
           "18": {
-            "count": 22,
+            "count": 7,
             "duration": 7369.941,
             "min": {"00":3,"01":3,"02":4,"05":1,"07":1,"09":3,"10":7},
             "min_duration": {"00": 233.06,"01": 215.289,"02": 253.358,"05": 58.471,"07": 131.922,"09": 278.288,"10": 896.483}
           },
           "19": {
-            "count": 6,
+            "count": 2,
             "duration": 7369.941,
             "min": {"00":3,"01":3},
             "min_duration": {"00": 233.06,"01": 215.289}
@@ -36,17 +37,33 @@ const JSON_DATA = `
   ]
 }`
 
-func TestConversionTopSlowest(t *testing.T) {
+func TestConversion(t *testing.T) {
 	res := convert([]byte(JSON_DATA))
 	fmt.Println(len(res))
+
+	sres := string(res)
+	if !strings.Contains(sres,nfoActionKeyOnES) {
+		t.Errorf("Should have generated %v json data", nfoActionKeyOnES)
+	}
+	if !strings.Contains(sres,tslActionKeyOnES) {
+		t.Errorf("Should have generated %v json data", tslActionKeyOnES)
+	}
+	fmt.Println(sres)
 }
 
-func TestUnmarshalMarshal(t *testing.T) {
+func TestUnmarshal(t *testing.T) {
 	o := PgBadgerOutputData{}
 	json.Unmarshal([]byte(JSON_DATA), &o)
-	fmt.Println(o)
-	if _, err := json.Marshal(o); err != nil {
-		panic(o)
+
+	if len(o.PgBadgerTopSlowest) != 2 {
+		t.Errorf("Should have unmarshalled 2 top slowest elements, instead got %v when unmarshalled `%v`",
+			len(o.PgBadgerTopSlowest),
+			o.PgBadgerTopSlowest)
+	}
+	if len(o.PgBadgerNormalyzedInfo.Entries) != 9 {
+		t.Errorf("Should have unmarshalled 9 normalized info elements, instead got %v when unmarshalled `%v`",
+			len(o.PgBadgerNormalyzedInfo.Entries),
+			o.PgBadgerNormalyzedInfo)
 	}
 }
 

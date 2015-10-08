@@ -20,9 +20,6 @@ const (
 	errorSuffix          = ".error" + ".consumed"
 	defaultConfigFile    = "pglog-processor.conf"
 	badgerCmd            = "/usr/local/bin/pgbadger"
-	timeStampParseLayout = "2006-01-02 15:04:05"
-	timeStampPrintLayout = "2006-01-02T15:04:05.999999+00:00"
-	actionKeyOnES        = "PgSlowestQueries"
 )
 
 // Config contains configuration data read from conf file.
@@ -183,14 +180,24 @@ func convert(data []byte) []byte {
 	log.WithField("unmarshaled", j).Debug()
 
 	var converted []byte
+
+	// converting TopSlowest
 	for _, tps := range j.PgBadgerTopSlowest {
-		res, err := json.Marshal(tps)
-		check(err, "Couldn't marshal object", log.Fields{"object": j})
-		log.WithField("marshaled", string(res)).Debug()
-		res = append(res, []byte("\n")...)
-		converted = append(converted, res...)
+		converted = append(converted, marshal(tps)...)
+	}
+
+	// converting NormalyzedInfo (sic)
+	for _, nfo := range j.PgBadgerNormalyzedInfo.Entries  {
+		converted = append(converted, marshal(nfo)...)
 	}
 	return converted
+}
+
+func marshal(v interface{}) []byte {
+	res, err := json.Marshal(v)
+	check(err, "Couldn't marshal object", log.Fields{"object": v})
+	log.WithField("marshaled", string(res)).Debug()
+	return res
 }
 
 // markAsConsumed marks the given file as consumed, avoiding re-reading it.
