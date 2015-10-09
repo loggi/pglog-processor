@@ -1,4 +1,4 @@
-package pglog_processor
+package main
 
 import (
 	"bytes"
