@@ -1,5 +1,5 @@
 # pglog-processor
-Process PostgreSQL fetched logs, making them ready to be sent to Graphite (soon) and
+Process PostgreSQL fetched logs, making them ready to be sent to Graphite and
 Elasticsearch
 
 Given a directory full of pg log files, pglog-processor converts them, marking

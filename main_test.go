@@ -12,7 +12,7 @@ const JSON_DATA = `
 {
   "overall_checkpoint": {},
   "normalyzed_info": {
-    "commit;": {
+    "select 1;": {
       "chronos": {
         "20151006": {
           "18": {
@@ -26,6 +26,18 @@ const JSON_DATA = `
             "duration": 7369.941,
             "min": {"00":3,"01":3},
             "min_duration": {"00": 233.06,"01": 215.289}
+          }
+        }
+      }
+    },
+    "commit;": {
+      "chronos": {
+        "20151006": {
+          "18": {
+            "count": 7,
+            "duration": 7369.941,
+            "min": {"00":3},
+            "min_duration": {"00": 233.06}
           }
         }
       }
@@ -53,6 +65,12 @@ func TestConversion(t *testing.T) {
 	if !strings.Contains(sres,tslActionKeyOnES) {
 		t.Errorf("Should have generated %v json data", tslActionKeyOnES)
 	}
+	for _, blacklisted := range config.Main.BlacklistedQuery {
+		if strings.Contains(sres, blacklisted) {
+			t.Errorf("Shouldn't have generated data containg %v", blacklisted)
+		}
+	}
+
 	fmt.Println(sres)
 }
 
@@ -73,8 +91,8 @@ func TestUnmarshal(t *testing.T) {
 			len(o.PgBadgerTopSlowest),
 			o.PgBadgerTopSlowest)
 	}
-	if len(o.PgBadgerNormalyzedInfo.Entries) != 9 {
-		t.Errorf("Should have unmarshalled 9 normalized info elements, instead got %v when unmarshalled `%v`",
+	if len(o.PgBadgerNormalyzedInfo.Entries) != 10 {
+		t.Errorf("Should have unmarshalled 10 normalized info elements, instead got %v when unmarshalled `%v`",
 			len(o.PgBadgerNormalyzedInfo.Entries),
 			o.PgBadgerNormalyzedInfo)
 	}

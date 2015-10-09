@@ -123,7 +123,7 @@ func (o *TopSlowest) UnmarshalJSON(data []byte) error {
 // NormalizedInfo contains the most run generic queries in the time period.
 // It includes average duration anc count per minute.
 // The data output from pgBadger is tre structured, but we want to send
-// to ES (or Graphite) a flat data format.
+// to ES and/or Graphite a flat data format.
 //
 // The following represents the data output by pgBadger:
 //`

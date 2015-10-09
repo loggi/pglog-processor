@@ -31,15 +31,11 @@ type Config struct {
 		OutputFilePath    string
 		LogLevel          string
 		Test              bool
+		BlacklistedQuery  []string
 	}
 	PgBadger struct {
 		InputDir string
 		Prefix   string
-	}
-	Graphite struct {
-		Host         string
-		Port         int
-		MetricPrefix string
 	}
 }
 
@@ -187,17 +183,33 @@ func convert(data []byte) ([]byte, error) {
 	// converting TopSlowest
 	log.WithField("entries", len(j.PgBadgerTopSlowest)).Info("PgBadgerTopSlowest")
 	for _, tps := range j.PgBadgerTopSlowest {
-		converted = append(converted, marshal(tps)...)
+		if !isBlacklisted(tps.Query) {
+			converted = append(converted, marshal(tps)...)
+		}
 	}
 
 	// converting NormalyzedInfo (sic)
 	log.WithField("entries", len(j.PgBadgerNormalyzedInfo.Entries)).Info("PgBadgerNormalyzedInfo")
 	for _, nfo := range j.PgBadgerNormalyzedInfo.Entries {
-		converted = append(converted, marshal(nfo)...)
+		if !isBlacklisted(nfo.Query) {
+			converted = append(converted, marshal(nfo)...)
+		}
 	}
 	return converted, nil
 }
 
+// Checks if the given query is blacklisted
+func isBlacklisted(query string) bool {
+	for _, blacklisted := range config.Main.BlacklistedQuery {
+		log.WithFields(log.Fields{"query": query, "blacklisted": blacklisted}).Error()
+		if query == blacklisted {
+			return true
+		}
+	}
+	return false
+}
+
+// marshal the given object
 func marshal(v interface{}) []byte {
 	res, err := json.Marshal(v)
 	check(err, "Couldn't marshal object", log.Fields{"object": v})
