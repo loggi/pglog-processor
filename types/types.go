@@ -1,24 +1,25 @@
-package pglog_processor
+package types
 
 import (
 	"encoding/json"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"time"
+	"strings"
 )
 
 // Top Slowest: tsl
 const (
-	tslTimeStampParseLayout = "2006-01-02 15:04:05"
-	tslStampPrintLayout     = "2006-01-02T15:04:05.999999+00:00"
-	tslActionKeyOnES        = "PgSlowestQueries"
+	TslTimeStampParseLayout = "2006-01-02 15:04:05"
+	TslStampPrintLayout = "2006-01-02T15:04:05.999999+00:00"
+	TslActionKeyOnES = "PgSlowestQueries"
 )
 
 // NormalizedInfo: nfo
 const (
-	nfoTimeStampParseLayout = "200601021504"
-	nfoTimeStampPrintLayout = tslStampPrintLayout
-	nfoActionKeyOnES        = "PgNormalizedQueries"
+	NfoTimeStampParseLayout = "200601021504"
+	NfoTimeStampPrintLayout = TslStampPrintLayout
+	NfoActionKeyOnES        = "PgNormalizedQueries"
 )
 
 // Struct representing pgBadger output
@@ -67,13 +68,25 @@ func (o Milli) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf("%v", o)), nil
 }
 
+// UnmarshalJSON overriding to force duration format
+func (o *Milli) UnmarshalJSON(data []byte) error {
+	// coherently using the same layout used to print.
+	adjusted := fmt.Sprintf("%sms", strings.Trim(string(data), `"`))
+	if dur, err := time.ParseDuration(adjusted); err != nil {
+		return err
+	} else {
+		*o = Milli(dur)
+	}
+	return nil
+}
+
 // Timestamp type is required to make time unmarshalling flexible.
 // We need to save using a specific layout.
 type Timestamp time.Time
 
 // String overriding to force accepted timestamp format
 func (t Timestamp) String() string {
-	return time.Time(t).Format(tslStampPrintLayout)
+	return time.Time(t).Format(TslStampPrintLayout)
 }
 
 // MarshalJSON overriding to force accepted timestamp format
@@ -81,6 +94,16 @@ func (t Timestamp) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf(`"%v"`, t)), nil
 }
 
+// UnmarshalJSON overriding to force timestamp format
+func (t *Timestamp) UnmarshalJSON(data []byte) error {
+	// coherently using the same layout used to print.
+	if ts, err := time.Parse(TslStampPrintLayout, strings.Trim(string(data), `"`)); err != nil {
+		return err
+	} else {
+		*t = Timestamp(ts)
+	}
+	return nil
+}
 
 // TopSlowest represents the top slowest queries, including the values bound.
 // In addition, this struct represents the ElasticSearch format data exactly.
@@ -102,12 +125,12 @@ func (o *TopSlowest) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	o.Action = tslActionKeyOnES
+	o.Action = TslActionKeyOnES
 	duration, err := time.ParseDuration(v[0] + "ms")
 	if err != nil {
 		return err
 	}
-	timestamp, err := time.Parse(tslTimeStampParseLayout, v[1])
+	timestamp, err := time.Parse(TslTimeStampParseLayout, v[1])
 	if err != nil {
 		return err
 	}
@@ -180,11 +203,11 @@ func (o *NormalizedInfo) UnmarshalJSON(data []byte) error {
 			for hour, m := range h {
 				for minute, count := range m.Min {
 					en := NormalizedInfoEntry{
-						Action: nfoActionKeyOnES,
+						Action: NfoActionKeyOnES,
 						Query:  query,
 						Count:  count,
 					}
-					if ts, err := time.Parse(nfoTimeStampParseLayout, date+hour+minute); err != nil {
+					if ts, err := time.Parse(NfoTimeStampParseLayout, date+hour+minute); err != nil {
 						log.WithError(err).Error("Could not process")
 						continue
 					} else {

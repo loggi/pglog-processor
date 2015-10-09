@@ -1,4 +1,4 @@
-package pglog_processor
+package main
 
 import (
 	"bytes"
@@ -13,6 +13,7 @@ import (
 	"code.google.com/p/gcfg"
 	"flag"
 	log "github.com/Sirupsen/logrus"
+	"loggi/pglog-processor/types"
 )
 
 const (
@@ -169,7 +170,7 @@ func analyze(f FileDesc) ([]byte, error) {
 func convert(data []byte) ([]byte, error) {
 	log.WithField("data len", len(data)).Info("Converting")
 
-	var j PgBadgerOutputData
+	var j types.PgBadgerOutputData
 	log.WithField("data", string(data)).Debug("Data ready to be converted")
 	if err := json.Unmarshal(data, &j); err != nil {
 		log.WithError(err).WithFields(log.Fields{"data": data}).Error("Couldn't unmarshal data")

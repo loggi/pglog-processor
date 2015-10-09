@@ -1,8 +1,8 @@
-package pglog_processor
+package main
 
 import (
 	"testing"
-//	"time"
+	"loggi/pglog-processor/types"
 	"fmt"
 	"encoding/json"
 	"strings"
@@ -49,6 +49,8 @@ const JSON_DATA = `
   ]
 }`
 
+var NORMALIZED_DATA = `{"action":"PgNormalizedQueries","@timestamp":"2015-10-09T18:00:00+00:00","duration":115,"query":"select 1","count":1}`
+
 const EMPTY_DATA = ``
 
 func TestConversion(t *testing.T) {
@@ -59,11 +61,11 @@ func TestConversion(t *testing.T) {
 	fmt.Println(len(res))
 
 	sres := string(res)
-	if !strings.Contains(sres,nfoActionKeyOnES) {
-		t.Errorf("Should have generated %v json data", nfoActionKeyOnES)
+	if !strings.Contains(sres, types.NfoActionKeyOnES) {
+		t.Errorf("Should have generated %v json data", types.NfoActionKeyOnES)
 	}
-	if !strings.Contains(sres,tslActionKeyOnES) {
-		t.Errorf("Should have generated %v json data", tslActionKeyOnES)
+	if !strings.Contains(sres, types.TslActionKeyOnES) {
+		t.Errorf("Should have generated %v json data", types.TslActionKeyOnES)
 	}
 	for _, blacklisted := range config.Main.BlacklistedQuery {
 		if strings.Contains(sres, blacklisted) {
@@ -83,7 +85,7 @@ func TestEmptyConversionError(t *testing.T) {
 }
 
 func TestUnmarshal(t *testing.T) {
-	o := PgBadgerOutputData{}
+	o := types.PgBadgerOutputData{}
 	json.Unmarshal([]byte(JSON_DATA), &o)
 
 	if len(o.PgBadgerTopSlowest) != 2 {
@@ -95,6 +97,13 @@ func TestUnmarshal(t *testing.T) {
 		t.Errorf("Should have unmarshalled 10 normalized info elements, instead got %v when unmarshalled `%v`",
 			len(o.PgBadgerNormalyzedInfo.Entries),
 			o.PgBadgerNormalyzedInfo)
+	}
+}
+
+func TestUnmarshalNormalizedInfoEntry(t *testing.T) {
+	var en = types.NormalizedInfoEntry{}
+	if err := json.Unmarshal([]byte(NORMALIZED_DATA), &en); err != nil {
+		t.Error(err)
 	}
 }
 
