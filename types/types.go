@@ -5,6 +5,7 @@ import (
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"time"
+	"strings"
 )
 
 // Top Slowest: tsl
@@ -81,6 +82,16 @@ func (t Timestamp) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf(`"%v"`, t)), nil
 }
 
+// UnmarshalJSON overriding to force timestamp format
+func (t *Timestamp) UnmarshalJSON(data []byte) error {
+	// coherently using the same layout used to print.
+	if ts, err := time.Parse(TslStampPrintLayout, strings.Trim(string(data), `"`)); err != nil {
+		return err
+	} else {
+		*t = Timestamp(ts)
+	}
+	return nil
+}
 
 // TopSlowest represents the top slowest queries, including the values bound.
 // In addition, this struct represents the ElasticSearch format data exactly.

@@ -49,6 +49,8 @@ const JSON_DATA = `
   ]
 }`
 
+var NORMALIZED_DATA = `{"action":"PgNormalizedQueries","@timestamp":"2015-10-09T18:00:00+00:00","duration":115,"query":"select 1","count":1}`
+
 const EMPTY_DATA = ``
 
 func TestConversion(t *testing.T) {
@@ -95,6 +97,13 @@ func TestUnmarshal(t *testing.T) {
 		t.Errorf("Should have unmarshalled 10 normalized info elements, instead got %v when unmarshalled `%v`",
 			len(o.PgBadgerNormalyzedInfo.Entries),
 			o.PgBadgerNormalyzedInfo)
+	}
+}
+
+func TestUnmarshalNormalizedInfoEntry(t *testing.T) {
+	var en = types.NormalizedInfoEntry{}
+	if err := json.Unmarshal([]byte(NORMALIZED_DATA), &en); err != nil {
+		t.Error(err)
 	}
 }
 
