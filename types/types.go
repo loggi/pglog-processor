@@ -68,6 +68,18 @@ func (o Milli) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf("%v", o)), nil
 }
 
+// UnmarshalJSON overriding to force duration format
+func (o *Milli) UnmarshalJSON(data []byte) error {
+	// coherently using the same layout used to print.
+	adjusted := fmt.Sprintf("%sms", strings.Trim(string(data), `"`))
+	if dur, err := time.ParseDuration(adjusted); err != nil {
+		return err
+	} else {
+		*o = Milli(dur)
+	}
+	return nil
+}
+
 // Timestamp type is required to make time unmarshalling flexible.
 // We need to save using a specific layout.
 type Timestamp time.Time
