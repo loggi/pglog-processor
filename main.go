@@ -13,7 +13,7 @@ import (
 	"code.google.com/p/gcfg"
 	"flag"
 	log "github.com/Sirupsen/logrus"
-	"loggi/pglog-processor/types"
+	"github.com/loggi/pglog-processor/types"
 )
 
 const (
