@@ -202,8 +202,8 @@ func convert(data []byte) ([]byte, error) {
 // Checks if the given query is blacklisted
 func isBlacklisted(query string) bool {
 	for _, blacklisted := range config.Main.BlacklistedQuery {
-		log.WithFields(log.Fields{"query": query, "blacklisted": blacklisted}).Error()
 		if query == blacklisted {
+			log.WithFields(log.Fields{"query": query, "blacklisted": blacklisted}).Debug()
 			return true
 		}
 	}
