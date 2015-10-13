@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"code.google.com/p/gcfg"
+	"gopkg.in/gcfg.v1"
 	"flag"
 	log "github.com/Sirupsen/logrus"
 	"github.com/loggi/pglog-processor/types"
