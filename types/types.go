@@ -4,15 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
-	"time"
 	"strings"
+	"time"
 )
 
 // Top Slowest: tsl
 const (
 	TslTimeStampParseLayout = "2006-01-02 15:04:05"
-	TslStampPrintLayout = "2006-01-02T15:04:05.999999+00:00"
-	TslActionKeyOnES = "PgSlowestQueries"
+	TslStampPrintLayout     = "2006-01-02T15:04:05.999999+00:00"
+	TslActionKeyOnES        = "PgSlowestQueries"
 )
 
 // NormalizedInfo: nfo
@@ -22,36 +22,41 @@ const (
 	NfoActionKeyOnES        = "PgNormalizedQueries"
 )
 
-// Struct representing pgBadger output
-// List of first level keys (note that not all is of interest):
+// PerMinuteInfo: pmi
+const (
+	PmiTimeStampParseLayout = "200601021504"
+	PmiTimeStampPrintLayout = TslStampPrintLayout
+	PmiActionKeyOnES = "PgPerMinuteInfo"
+)
+
+// pgBadger output, list of first level keys (note that not all is of interest):
 //
-//	"normalyzed_info", (sic) DONE
-//	"user_info",
-//	"top_locked_info",
-//	"host_info",
-//	"autovacuum_info",
-//	"autoanalyze_info",
+//	"normalyzed_info" (sic)  DONE
+//	"top_slowest"            DONE
+//	"per_minute_info"
+//	"user_info"
+//	"top_locked_info"
+//	"host_info"
+//	"autovacuum_info"
+//	"autoanalyze_info"
 //	"tempfile_info",
-//	"top_tempfile_info",
-//	"session_info",
-//	"log_files",
-//	"logs_type",
-//	"checkpoint_info",
-//	"connection_info",
-//	"overall_checkpoint",
-//	"error_info",
-//	"database_info",
-//	"overall_stat",
-//	"nlines",
-//	"lock_info",
-//	"per_minute_info",
-//	"application_info",
-//	"top_slowest" DONE
-//
-// Currently only top_slowest is converted. TODO add other stats.
+//	"top_tempfile_info"
+//	"session_info"
+//	"log_files"
+//	"logs_type"
+//	"checkpoint_info"
+//	"connection_info"
+//	"overall_checkpoint"
+//	"error_info"
+//	"database_info"
+//	"overall_stat"
+//	"nlines"
+//	"lock_info"
+// 	"application_info"
 type PgBadgerOutputData struct {
-	PgBadgerTopSlowest     []TopSlowest   `json:"top_slowest"`
 	PgBadgerNormalyzedInfo NormalizedInfo `json:"normalyzed_info"`
+	PgBadgerPerMinuteInfo  PerMinuteInfo  `json:"per_minute_info"`
+	PgBadgerTopSlowest     []TopSlowest   `json:"top_slowest"`
 }
 
 // Milli type is required to make duration unmarshalling flexible.
@@ -142,7 +147,6 @@ func (o *TopSlowest) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-
 // NormalizedInfo contains the most run generic queries in the time period.
 // It includes average duration anc count per minute.
 // The data output from pgBadger is tree structured, but we want to send
@@ -170,6 +174,7 @@ type NormalizedInfo struct {
 	Entries []NormalizedInfoEntry
 }
 
+// NormalizedInfo "Output" format
 type NormalizedInfoEntry struct {
 	Action    string    `json:"action"`
 	Timestamp Timestamp `json:"@timestamp"`
@@ -178,13 +183,13 @@ type NormalizedInfoEntry struct {
 	Count     int       `json:"count"`
 }
 
-
+// NormalizedInfo "Input" format
 type Chronos struct {
 	//          date       hour
-	Chronos map[string]map[string]Minute
+	Chronos map[string]map[string]NormalizedInfoMinute
 }
 
-type Minute struct {
+type NormalizedInfoMinute struct {
 	Count        int
 	Duration     float64 // TODO change to Duration
 	Min          map[string]int
@@ -214,7 +219,7 @@ func (o *NormalizedInfo) UnmarshalJSON(data []byte) error {
 						en.Timestamp = Timestamp(ts)
 					}
 
-					if dur, err := time.ParseDuration(fmt.Sprintf("%fms",m.Min_Duration[minute])); err != nil {
+					if dur, err := time.ParseDuration(fmt.Sprintf("%fms", m.Min_Duration[minute])); err != nil {
 						log.WithError(err).Error("Could not process")
 						continue
 					} else {
@@ -227,5 +232,82 @@ func (o *NormalizedInfo) UnmarshalJSON(data []byte) error {
 	}
 	//		fmt.Println(en)
 	log.WithField("NormalizedInfo UnmarshalJSON", res).Debug()
+	return nil
+}
+
+// PerMinuteInfo contains metrics per minute.
+// The following represents the data output by pgBadger:
+//`
+// map["20151006":                                  -> date
+//   map["18":                                      -> hour
+//     map["01":                                    -> min
+//       map[
+//         "SELECT":                                -> query type
+//           map[
+//             "count": 6                           -> count
+//             "duration": 233.06                   -> acum per minute
+//             "second": map["01": 3, "03":3]       -> not interested...
+//           ]
+//       ]
+//     ]
+//   ]
+// ]
+//`
+// The 'query type' can be one of 'SELECT', 'OTHERS', 'query' or 'session',
+// where 'query' aggregates the duration sum of 'SELECT" and "OTHERS" and
+// 'session' is not relevant.
+type PerMinuteInfo struct {
+	Entries []PerMinuteInfoEntry
+}
+
+type PerMinuteInfoEntry struct {
+	Action    string    `json:"action"`
+	Desc      string    `json:"desc"`
+	Timestamp Timestamp `json:"@timestamp"`
+	Duration  Milli     `json:"duration"`
+	Count     int       `json:"count"`
+}
+
+type PerMinuteInfoMinute struct {
+	Count    int
+	Duration float64 // TODO change to Duration
+	Second   interface{}
+}
+
+func (o *PerMinuteInfo) UnmarshalJSON(data []byte) error {
+	//      map[date]  map[hour]  map[minute]map[desc]  PerMinuteInfoMinute
+	var res map[string]map[string]map[string]map[string]PerMinuteInfoMinute
+	if err := json.Unmarshal(data, &res); err != nil {
+		return err
+	}
+
+	for date, h := range res {
+		for hour, m := range h {
+			for minute, d := range m {
+				for desc, info := range d {
+					en := PerMinuteInfoEntry{
+						Action:    PmiActionKeyOnES,
+						Desc:      desc,
+						Count:     info.Count,
+					}
+					if ts, err := time.Parse(PmiTimeStampParseLayout, date+hour+minute); err != nil {
+						log.WithError(err).Error("Could not process")
+						continue
+					} else {
+						en.Timestamp = Timestamp(ts)
+					}
+
+					if dur, err := time.ParseDuration(fmt.Sprintf("%fms", info.Duration)); err != nil {
+						log.WithError(err).Error("Could not process")
+						continue
+					} else {
+						en.Duration = Milli(dur)
+					}
+					o.Entries = append(o.Entries, en)
+				}
+			}
+		}
+	}
+	log.WithField("PerMinuteInfo UnmarshalJSON", res).Debug()
 	return nil
 }

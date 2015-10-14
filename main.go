@@ -196,6 +196,13 @@ func convert(data []byte) ([]byte, error) {
 			converted = append(converted, marshal(nfo)...)
 		}
 	}
+
+	// converting PerMinuteInfo
+	log.WithField("entries", len(j.PgBadgerPerMinuteInfo.Entries)).Info("PerMinuteInfo")
+	for _, pmi := range j.PgBadgerPerMinuteInfo.Entries {
+		converted = append(converted, marshal(pmi)...)
+	}
+
 	return converted, nil
 }
 
