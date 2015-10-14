@@ -26,7 +26,7 @@ const (
 const (
 	PmiTimeStampParseLayout = "200601021504"
 	PmiTimeStampPrintLayout = TslStampPrintLayout
-	PmiActionKeyOnES = "PgPerMinuteInfo"
+	PmiActionKeyOnES        = "PgPerMinuteInfo"
 )
 
 // pgBadger output, list of first level keys (note that not all is of interest):
@@ -286,9 +286,9 @@ func (o *PerMinuteInfo) UnmarshalJSON(data []byte) error {
 			for minute, d := range m {
 				for desc, info := range d {
 					en := PerMinuteInfoEntry{
-						Action:    PmiActionKeyOnES,
-						Desc:      desc,
-						Count:     info.Count,
+						Action: PmiActionKeyOnES,
+						Desc:   desc,
+						Count:  info.Count,
 					}
 					if ts, err := time.Parse(PmiTimeStampParseLayout, date+hour+minute); err != nil {
 						log.WithError(err).Error("Could not process")
