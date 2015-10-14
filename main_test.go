@@ -2,15 +2,26 @@ package main
 
 import (
 	"testing"
-	"loggi/pglog-processor/types"
 	"fmt"
 	"encoding/json"
 	"strings"
+	"github.com/loggi/pglog-processor/types"
 )
 
 const JSON_DATA = `
 {
   "overall_checkpoint": {},
+  "per_minute_info": {
+    "20151006": {
+      "18": {
+        "00": {
+          "OTHERS": { "count": 3, "duration":  233.06,  "second": { "07": 3 } },
+          "SELECT": { "count": 3, "duration": 1775.482, "second": { "01": 1, "40": 2 } },
+          "query":  { "count": 6, "duration": 2008.542, "max": "346.860", "min": "54.937", "second": { "01": 1, "07": 3, "40": 2 } }
+        }
+      }
+    }
+  },
   "normalyzed_info": {
     "select 1;": {
       "chronos": {
@@ -51,6 +62,8 @@ const JSON_DATA = `
 
 var NORMALIZED_DATA = `{"action":"PgNormalizedQueries","@timestamp":"2015-10-09T18:00:00+00:00","duration":115,"query":"select 1","count":1}`
 
+//var PER_MINUTE_DATA = `{"action":"PgPerMinuteInfo","@timestamp":"2015-10-09T18:00:00+00:00","duration":115,"query":"select 1","count":1}`
+
 const EMPTY_DATA = ``
 
 func TestConversion(t *testing.T) {
@@ -66,6 +79,9 @@ func TestConversion(t *testing.T) {
 	}
 	if !strings.Contains(sres, types.TslActionKeyOnES) {
 		t.Errorf("Should have generated %v json data", types.TslActionKeyOnES)
+	}
+	if !strings.Contains(sres, types.PmiActionKeyOnES) {
+		t.Errorf("Should have generated %v json data", types.PmiActionKeyOnES)
 	}
 	for _, blacklisted := range config.Main.BlacklistedQuery {
 		if strings.Contains(sres, blacklisted) {
