@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/gcfg.v1"
 	"flag"
 	log "github.com/Sirupsen/logrus"
 	"github.com/loggi/pglog-processor/types"
+	"gopkg.in/gcfg.v1"
 )
 
 const (
@@ -27,12 +27,13 @@ const (
 // Main.RunDockerCmd is useful for local testing.
 type Config struct {
 	Main struct {
-		SleepTimeDuration time.Duration
-		SleepTime         string
-		OutputFilePath    string
-		LogLevel          string
-		Test              bool
-		BlacklistedQuery  []string
+		SleepTimeDuration  time.Duration
+		SleepTime          string
+		OutputFilePath     string
+		LogLevel           string
+		Test               bool
+		BlacklistedQuery   []string
+		RemoveAfterProcess bool
 	}
 	PgBadger struct {
 		InputDir string
@@ -225,15 +226,20 @@ func marshal(v interface{}) []byte {
 	return []byte(string(res) + "\n")
 }
 
-// markAsConsumed marks the given file as consumed, avoiding re-reading it.
+// marks the given file as consumed, avoiding re-reading it.
+// can optionally remove file if configured to do so
 func consumed(f FileDesc, suffix string) {
-	old := f.filepath()
-	new := f.filepath() + suffix
-	err := os.Rename(old, new)
-	check(err, "Couldn't rename file", log.Fields{
-		"old": old,
-		"new": new,
-	})
+	if config.Main.RemoveAfterProcess {
+		os.Remove(f.filepath())
+	} else {
+		old := f.filepath()
+		new := f.filepath() + suffix
+		err := os.Rename(old, new)
+		check(err, "Couldn't rename file", log.Fields{
+			"old": old,
+			"new": new,
+		})
+	}
 }
 
 // Appends the given byte array to target file, saving it.
