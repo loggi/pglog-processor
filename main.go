@@ -96,7 +96,11 @@ func main() {
 			consumed(fd, errorSuffix)
 		} else {
 			appendLog(converted)
-			consumed(fd, consumedSuffix)
+			if config.Main.RemoveAfterProcess {
+				os.Remove(fd.filepath())
+			} else {
+				consumed(fd, consumedSuffix)
+			}
 		}
 
 		time.Sleep(config.Main.SleepTimeDuration)
@@ -229,17 +233,13 @@ func marshal(v interface{}) []byte {
 // marks the given file as consumed, avoiding re-reading it.
 // can optionally remove file if configured to do so
 func consumed(f FileDesc, suffix string) {
-	if config.Main.RemoveAfterProcess {
-		os.Remove(f.filepath())
-	} else {
-		old := f.filepath()
-		new := f.filepath() + suffix
-		err := os.Rename(old, new)
-		check(err, "Couldn't rename file", log.Fields{
-			"old": old,
-			"new": new,
-		})
-	}
+	old := f.filepath()
+	new := f.filepath() + suffix
+	err := os.Rename(old, new)
+	check(err, "Couldn't rename file", log.Fields{
+		"old": old,
+		"new": new,
+	})
 }
 
 // Appends the given byte array to target file, saving it.
